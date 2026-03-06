@@ -1,0 +1,192 @@
+import pandas as pd
+import mysql.connector
+
+# Connect to the MySQL database
+conn = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password='YOUR PASSWORD HERE',
+    database='ecommerce_db'
+)
+cursor = conn.cursor()
+
+# Extract data from CSV files
+products_df = pd.read_csv('~/Documents/ETL_Project/products_data.csv')
+orders_df = pd.read_csv('~/Documents/ETL_Project/orders_data.csv')
+users_df = pd.read_csv('~/Documents/ETL_Project/users_data.csv')
+
+# Extract data from Excel files
+payments_df = pd.read_excel('~/Documents/ETL_Project/payments_data.xlsx', engine='openpyxl')
+reviews_df = pd.read_excel('~/Documents/ETL_Project/reviews_data.xlsx', engine='openpyxl')
+
+
+
+
+
+
+# Fill missing values in each dataframe as needed
+products_df = products_df.fillna({
+    'Description': 'No description available',
+    'Category': 'Miscellaneous'
+})
+
+orders_df = orders_df.fillna({
+    'TotalAmount': 0.0
+})
+
+payments_df = payments_df.fillna({
+    'PaymentMethod': 'Unknown',
+    'Amount': 0.0,
+    'PaymentDate': pd.Timestamp('1970-01-01')
+})
+
+reviews_df = reviews_df.fillna({
+    'ReviewText': 'no review'
+})
+
+# Handling invalid emails in the Users DataFrame
+def generate_unique_email(index):
+    return f'unknown_{index}@example.com'
+
+users_df['Email'] = users_df.apply(lambda row: row['Email'] if '@' in row['Email'] and '.' in row['Email'] else generate_unique_email(row.name), axis=1)
+
+# Ensure all prices are numeric
+products_df['Price'] = pd.to_numeric(products_df['Price'], errors='coerce').fillna(0.0).round(2)
+
+# Ensure all stock quantities are numeric
+products_df['StockQuantity'] = pd.to_numeric(products_df['StockQuantity'], errors='coerce').fillna(0).astype(int)
+
+# Standardize and convert date formats to string
+orders_df['OrderDate'] = pd.to_datetime(orders_df['OrderDate'], errors='coerce', format='%Y-%m-%d').fillna(pd.Timestamp('1970-01-01'))
+orders_df['OrderDate'] = orders_df['OrderDate'].dt.strftime('%Y-%m-%d')
+
+payments_df['PaymentDate'] = pd.to_datetime(payments_df['PaymentDate'], errors='coerce', format='%Y-%m-%d').fillna(pd.Timestamp('1970-01-01'))
+payments_df['PaymentDate'] = payments_df['PaymentDate'].dt.strftime('%Y-%m-%d')
+
+
+
+
+
+
+
+
+
+
+# Delete all records from Payments, Reviews, Orders, Users, and Products tables
+tables_to_clear = ['Payments', 'Reviews', 'Orders', 'Users', 'Products']
+for table in tables_to_clear:
+    cursor.execute(f"DELETE FROM {table}")
+conn.commit()
+
+# Insert data into Products table
+product_id_mapping = {}
+for index, row in products_df.iterrows():
+    cursor.execute("""
+        INSERT INTO Products (ProductName, Description, Price, StockQuantity, Category)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (row['ProductName'], row['Description'], row['Price'], row['StockQuantity'], row['Category']))
+    product_id_mapping[index] = cursor.lastrowid
+conn.commit()
+
+# Insert Users Data and Map Old UserIDs to New UserIDs
+user_id_mapping = {}
+for index, row in users_df.iterrows():
+    cursor.execute("""
+        INSERT INTO Users (UserName, Email, Address, Password)
+        VALUES (%s, %s, %s, %s)
+    """, (row['UserName'], row['Email'], row['Address'], row['Password']))
+    # Mapping old UserID index to the new UserID
+    user_id_mapping[index + 1] = cursor.lastrowid
+conn.commit()
+
+
+# Update Orders Data with New UserIDs
+orders_df['UserID'] = orders_df['UserID'].map(user_id_mapping)
+
+
+# Insert data into Orders table
+order_id_mapping = {}
+for index, row in orders_df.iterrows():
+    cursor.execute("""
+        INSERT INTO Orders (UserID, OrderDate, TotalAmount)
+        VALUES (%s, %s, %s)
+    """, (row['UserID'], row['OrderDate'], row['TotalAmount']))
+    order_id_mapping[index] = cursor.lastrowid
+conn.commit()
+
+
+# Map the new OrderIDs to payments_df
+payments_df['OrderID'] = payments_df.index.map(order_id_mapping)
+
+
+
+# Insert data into Payments table
+for index, row in payments_df.iterrows():
+    cursor.execute("""
+        INSERT INTO Payments (OrderID, PaymentMethod, PaymentDate, Amount)
+        VALUES (%s, %s, %s, %s)
+    """, (row['OrderID'], row['PaymentMethod'], row['PaymentDate'], row['Amount']))
+conn.commit()
+
+# Map the new UserIDs and ProductIDs to reviews_df
+reviews_df['UserID'] = reviews_df['UserID'].map(user_id_mapping)
+reviews_df['ProductID'] = reviews_df.index.map(product_id_mapping)
+
+# Filter out rows with invalid ratings
+reviews_df['Rating'] = pd.to_numeric(reviews_df['Rating'], errors='coerce')
+reviews_df = reviews_df.dropna(subset=['Rating', 'ProductID', 'UserID'])
+
+
+# Insert data into Reviews table
+for index, row in reviews_df.iterrows():
+    cursor.execute("""
+        INSERT INTO Reviews (ProductID, UserID, Rating, ReviewText)
+        VALUES (%s, %s, %s, %s)
+    """, (row['ProductID'], row['UserID'], row['Rating'], row['ReviewText']))
+conn.commit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Final Verification
+def verify_table_count(table_name, expected_count):
+    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+    count = cursor.fetchone()[0]
+    if count == expected_count:
+        print(f"{table_name} verification passed: {count} records.")
+    else:
+        print(f"{table_name} verification failed: Expected {expected_count}, but found {count}.")
+
+# Verify Products table
+verify_table_count('Products', len(products_df))
+
+# Verify Users table
+verify_table_count('Users', len(users_df))
+
+# Verify Orders table
+verify_table_count('Orders', len(orders_df))
+
+# Verify Payments table
+verify_table_count('Payments', len(payments_df))
+
+# Verify Reviews table
+verify_table_count('Reviews', len(reviews_df))
+
+
+
+
