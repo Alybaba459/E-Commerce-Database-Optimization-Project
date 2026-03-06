@@ -64,11 +64,8 @@ CREATE TABLE Orders (
     TotalAmount DECIMAL(10, 2) NOT NULL, -- Total amount of the order
     FOREIGN KEY (UserID) REFERENCES Users(UserID) -- Link to the Users table
 );
-DESCRIBE Orders;
 -- Verify the structure of the Orders table
-
-ALTER TABLE Orders
-MODIFY OrderDate DATE NOT NULL;
+DESCRIBE Orders;
 
 -- Insert sample data into the Orders table
 INSERT INTO Orders (UserID, OrderDate, TotalAmount)
