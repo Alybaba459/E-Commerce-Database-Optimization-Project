@@ -1,0 +1,105 @@
+
+
+-- Switch to the 'ecommerce_db' database to ensure all operations are performed on the correct database
+USE ecommerce_db;
+
+-- Add a new column 'ProductLaunchDate' to the 'Products' table
+-- This column will store the launch date of each product
+ALTER TABLE Products 
+ADD COLUMN ProductLaunchDate DATE;
+
+-- Verify that the 'ProductLaunchDate' column has been added to the 'Products' table
+DESCRIBE Products;
+
+-- Another way to list columns from the 'Products' table, including the new 'ProductLaunchDate' column
+SHOW COLUMNS FROM Products;
+
+-- Update the 'ProductLaunchDate' for each category of products
+-- Here, we're setting the launch date for 'Widgets' to January 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-01-01' 
+WHERE Category = 'Widgets';
+
+-- Set the launch date for 'Tools' to February 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-02-01' 
+WHERE Category = 'Tools';
+
+-- Set the launch date for 'Miscellaneous' products to March 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-03-01' 
+WHERE Category = 'Miscellaneous';
+
+-- Set the launch date for 'Machines' to April 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-04-01' 
+WHERE Category = 'Machines';
+
+-- Set the launch date for 'Instruments' to May 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-05-01' 
+WHERE Category = 'Instruments';
+
+-- Set the launch date for 'Gizmos' to June 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-06-01' 
+WHERE Category = 'Gizmos';
+
+-- Set the launch date for 'Gadgets' to July 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-07-01' 
+WHERE Category = 'Gadgets';
+
+-- Set the launch date for 'Devices' to August 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-08-01' 
+WHERE Category = 'Devices';
+
+-- Set the launch date for 'Contraptions' to September 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-09-01' 
+WHERE Category = 'Contraptions';
+
+-- Set the launch date for 'Appliances' to October 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-10-01' 
+WHERE Category = 'Appliances';
+
+-- Set the launch date for 'Apparatus' to November 1, 2024
+UPDATE Products 
+SET ProductLaunchDate = '2024-11-01' 
+WHERE Category = 'Apparatus';
+
+-- Retrieve and display the ProductID, ProductName, and ProductLaunchDate for all products
+-- This allows you to see the launch dates you just set
+SELECT ProductID, ProductName, ProductLaunchDate 
+FROM Products;
+
+-- Count how many products have a 'ProductLaunchDate' that is not NULL
+-- This ensures that the launch date was set for all applicable products
+SELECT COUNT(*) 
+FROM Products 
+WHERE ProductLaunchDate IS NOT NULL;
+
+-- Retrieve products where 'ProductLaunchDate' is still NULL
+-- This helps you identify any products that might have been missed
+SELECT ProductID, ProductName, ProductLaunchDate 
+FROM Products 
+WHERE ProductLaunchDate IS NULL;
+
+-- Add a check constraint to ensure that 'ProductLaunchDate' is not NULL
+-- Also, it checks that the date is not before January 1, 2020
+ALTER TABLE Products 
+ADD CONSTRAINT chk_launchdate 
+CHECK (ProductLaunchDate IS NOT NULL AND ProductLaunchDate >= '2020-01-01');
+
+-- Retrieve and display product details including the newly added 'ProductLaunchDate'
+-- This helps you verify the integrity of the data after adding the constraint
+SELECT ProductName, Price, StockQuantity, ProductLaunchDate 
+FROM Products;
+
+-- Group the products by 'ProductLaunchDate' and count how many products were launched on each date
+-- This gives you an overview of product launches
+SELECT ProductLaunchDate, COUNT(*) AS NumberOfProducts 
+FROM Products 
+GROUP BY ProductLaunchDate;
